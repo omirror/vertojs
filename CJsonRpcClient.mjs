@@ -1,4 +1,7 @@
-/** @module CJsonRpcClient */
+/**
+ * A module JSON-RPC Client lib
+ * @module CJsonRpcClient
+ */
 class CJsonRpcClient {
     /**
      * CJsonRpcClient class constructor
@@ -78,7 +81,6 @@ class CJsonRpcClient {
      * Notify verto method call
      *
      * @method notify
-     * @method notify
      * @param {string}   method - The method to run on JSON-RPC server.
      * @param {Object}   params - The params object.
      */
@@ -95,7 +97,14 @@ class CJsonRpcClient {
         this._wsCall(request);
     }
 
-    //low-level transport call (real ws call)
+    /**
+     * Real ws call method. Internal
+     *
+     * @method _wsCall
+     * @param {Object}   request    - The request object.
+     * @param {function} success_cb - A callback for successful request.
+     * @param {function} error_cb   - A callback for error.
+     */
     _wsCall(request, success_cb, error_cb) {
         const jsonRequest = JSON.stringify(request);
 
@@ -112,6 +121,12 @@ class CJsonRpcClient {
         }
     }
 
+    /**
+     * OnMessage callback. Internal
+     *
+     * @method _onWSMessage
+     * @param {Object} event - Event object
+     */
     _onWSMessage(event) {
         if (this.options.debug) {
             console.log('DEBUG:CJsonRpcClient::_onWSMessage', event);
@@ -156,6 +171,11 @@ class CJsonRpcClient {
         }
     }
 
+    /**
+     * OnConnect callback. Internal
+     *
+     * @method _onWSConnect
+     */
     _onWSConnect() {
         if (this.options.debug) {
             console.log('DEBUG:CJsonRpcClient::_onWSConnect');
@@ -178,6 +198,11 @@ class CJsonRpcClient {
         }
     }
 
+    /**
+     * OnClose callback. Internal
+     *
+     * @method _onWSClose
+     */
     _onWSClose() {
         if (this.options.debug) {
             console.log('DEBUG:CJsonRpcClient::_onWSClose');
@@ -201,11 +226,19 @@ class CJsonRpcClient {
         this.socketRetryCount++;
     }
 
+    /**
+     * OnError callback. Internal
+     *
+     * @method _onWSError
+     * @param {Object} event - Event object
+     */
     _onWSError(event) {
         if (this.options.debug) {
             console.log('DEBUG:CJsonRpcClient::_onWSError', event);
         }
+
         this.m_socket = null;
+
         if (this.options.onWSError) {
             this.options.onWSError(this, event);
         }

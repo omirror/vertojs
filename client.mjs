@@ -1,4 +1,7 @@
-/** @module CVerto */
+/**
+ * A module Verto lib
+ * @module CVerto
+ */
 import { CJsonRpcClient } from './CJsonRpcClient.mjs';
 
 class CVerto {
