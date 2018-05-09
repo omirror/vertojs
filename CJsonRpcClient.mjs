@@ -1,5 +1,12 @@
 /**
+ * 2018
+ *
+ * Contributor(s):
+ *
+ * Anatoly Yuzefovich <iskhartakh@gmail.com>
+ *
  * A module JSON-RPC Client lib
+ *
  * @module CJsonRpcClient
  */
 class CJsonRpcClient {
@@ -12,7 +19,7 @@ class CJsonRpcClient {
     constructor(options) {
         this.options = Object.assign({
             socketUrl:      null,
-            onmessage:      null,     // Not requested response callback
+            onmessage:      null,           // Not requested response callback
             login:          null,
             passwd:         null,
             sessid:         null,
@@ -23,12 +30,12 @@ class CJsonRpcClient {
 
         this.m_socket           = null;
         this.queue              = [];
-        this._current_id        = 1;       // the id to match request/response
+        this._current_id        = 1;        // the id to match request/response
         this._ws_callbacks      = {};
         this.socketRetryCount   = 0;
         this.socketRetryTimeout = 1000;
 
-        this.socket;                  // init connection
+        this.socket;                        // init connection
     }
 
     /**
@@ -38,19 +45,20 @@ class CJsonRpcClient {
      * @return {Object} socket - A WebSocket object
      */
     get socket() {
-        if (!this.m_socket) {
-            if (this.socketRetrying) {
-                clearTimeout(this.socketRetrying);
-                this.socketRetrying = null;
-            }
-            this.m_socket           = new WebSocket(this.options.socketUrl);
-            this.m_socket.onmessage = (event) => this._onWSMessage(event);
-            this.m_socket.onopen    = (event) => this._onWSConnect(event);
-            this.m_socket.onclose   = (event) => this._onWSClose(event);
-            this.m_socket.onerror   = (event) => this._onWSError(event);
+        if (this.m_socket)
+            return this.m_socket;
+
+        if (this.socketRetrying) {
+            clearTimeout(this.socketRetrying);
+            this.socketRetrying = null;
         }
 
-        return this.m_socket;
+        this.m_socket           = new WebSocket(this.options.socketUrl);
+        this.m_socket.onmessage = (event) => this._onWSMessage(event);
+        this.m_socket.onopen    = (event) => this._onWSConnect(event);
+        this.m_socket.onclose   = (event) => this._onWSClose(event);
+        this.m_socket.onerror   = (event) => this._onWSError(event);
+
     }
 
     /**
@@ -94,6 +102,7 @@ class CJsonRpcClient {
             method:  method,
             params:  params
         };
+
         this._wsCall(request);
     }
 
@@ -109,11 +118,11 @@ class CJsonRpcClient {
         const jsonRequest = JSON.stringify(request);
 
         if (this.socket.readyState != WebSocket.OPEN) {
-            this.queue.push(request);
+            this.queue.push(jsonRequest);
             return;
-        } else {
-            this.socket.send(jsonRequest);
         }
+
+        this.socket.send(jsonRequest);
 
         // Setup callbacks per request. The request its Obj with 'id' field and response required
         if (request.id) {
@@ -129,7 +138,7 @@ class CJsonRpcClient {
      */
     _onWSMessage(event) {
         if (this.options.debug) {
-            console.log('DEBUG:CJsonRpcClient::_onWSMessage', event);
+            console.debug('DEBUG:CJsonRpcClient::_onWSMessage', event);
         }
         let response;
         try {
@@ -153,7 +162,7 @@ class CJsonRpcClient {
             }
         }
 
-        //Handler of the response with no request
+        // Handler of the response with no request
         if (this.options.onmessage) {
             event.eventData = response || {};
             const reply     = this.options.onmessage(event);
@@ -164,7 +173,7 @@ class CJsonRpcClient {
                     result:   reply
                 };
                 if (this.options.debug) {
-                    console.log('DEBUG:CJsonRpcClient::_onWSMessage: Sending Reply', msg);
+                    console.debug('DEBUG:CJsonRpcClient::_onWSMessage: Sending Reply', msg);
                 }
                 this.socket.send(JSON.stringify(msg));
             }
@@ -178,7 +187,7 @@ class CJsonRpcClient {
      */
     _onWSConnect() {
         if (this.options.debug) {
-            console.log('DEBUG:CJsonRpcClient::_onWSConnect');
+            console.debug('DEBUG:CJsonRpcClient::_onWSConnect');
         }
 
         this.socketRetryCount   = 0;
@@ -190,9 +199,10 @@ class CJsonRpcClient {
 
         let req;
         if (this.options.debug && this.queue.length) {
-            console.log(`DEBUG:CJsonRpcClient::_onWSConnect: Sending queued requests. Queue deep ${this.queue.length}`);
+            console.debug(`DEBUG:CJsonRpcClient::_onWSConnect: Sending queued requests. Queue deep ${this.queue.length}`);
         }
-        //Send queued requests
+
+        // Send queued requests
         while (req = this.queue.pop()) {
             this.socket.send(req);
         }
@@ -205,7 +215,7 @@ class CJsonRpcClient {
      */
     _onWSClose() {
         if (this.options.debug) {
-            console.log('DEBUG:CJsonRpcClient::_onWSClose');
+            console.debug('DEBUG:CJsonRpcClient::_onWSClose');
         }
 
         this.m_socket = null;
@@ -223,6 +233,7 @@ class CJsonRpcClient {
             console.log('DEBUG:CJsonRpcClient::_onWSClose: WebSocket Attempting Reconnection....');
             this.socket;
         }, this.socketRetryTimeout);
+
         this.socketRetryCount++;
     }
 
@@ -234,7 +245,7 @@ class CJsonRpcClient {
      */
     _onWSError(event) {
         if (this.options.debug) {
-            console.log('DEBUG:CJsonRpcClient::_onWSError', event);
+            console.debug('DEBUG:CJsonRpcClient::_onWSError', event);
         }
 
         this.m_socket = null;

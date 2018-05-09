@@ -1,8 +1,16 @@
 /**
+ * 2018
+ *
+ * Contributor(s):
+ *
+ * Anatoly Yuzefovich <iskhartakh@gmail.com>
+ *
  * A module Verto lib
+ *
  * @module CVerto
  */
 import { CJsonRpcClient } from './CJsonRpcClient.mjs';
+import { CVertoDialog } from './CVertoDialog.mjs';
 
 class CVerto {
     /**
@@ -24,8 +32,14 @@ class CVerto {
             userVariables:  {},
             iceServers:     false,
             ringSleep:      6000,
-            sessid:         null
+            sessid:         null,
+            debug:          false
         }, options);
+
+        /* @todo FSRTC to implemetation
+        if (this.options.deviceParams.useCamera) {
+            FSRTC.getValidRes(this.options.deviceParams.useCamera, this.options.deviceParams.onResCheck);
+        }*/
 
         if (!this.options.deviceParams.useMic) {
             this.options.deviceParams.useMic = 'any';
@@ -46,7 +60,7 @@ class CVerto {
             loginParams:    this.options.loginParams,
             userVariables:  this.options.userVariables,
             sessid:         this.sessid,
-            debug:          true,
+            debug:          this.options.debug,
             onmessage:     (e) => this.handleMessage(e.eventData),
             onWSConnect:   (rpcClient) => {
                 let params = {};
@@ -60,7 +74,7 @@ class CVerto {
                 }
                 rpcClient.call('login', params, (success) => {
                     if (this.callbacks.onWSLogin) {
-                        this.callbacks.onWSLogin(success);
+                        this.callbacks.onWSLogin(this, success);
                     }
                 });
             },
@@ -72,11 +86,212 @@ class CVerto {
             }
         });
 
+        this.videoDevices    = [];
+        this.audioInDevices  = [];
+        this.audioOutDevices = [];
+
+        this.enum = {
+            state: {
+                new:         0,
+                requesting:  1,
+                trying:      2,
+                recovering:  3,
+                ringing:     4,
+                answering:   5,
+                early:       6,
+                active:      7,
+                held:        8,
+                hangup:      9,
+                destroy:     10,
+                purge:       11
+            },
+            direction: {
+                inbound:     0,
+                outbound:    1
+            },
+            message: {
+                display:     0,
+                info:        1,
+                pvtEvent:    2,
+                clientReady: 3
+            }
+        };
+
+        Object.freeze(this.enum);
+
         this.refreshDevices();
     }
 
+    /**
+     * Verto proto messages handler
+     *
+     * @method handleMessage
+     * @param {Object} data - Message object
+     */
     handleMessage(data) {
-        console.log('CVerto message received', data);
+        if (this.options.debug) {
+            console.debug('CVerto::handleMessage: message received', data);
+        }
+
+        if (!data || !data.method) {
+            if (this.options.debug) {
+                console.error(`CVerto::handleMessage: Bad data: ${data}`);
+            }
+            return;
+        }
+
+        let dialog = data.params.callID ? this.dialogs[data.params.callID] : null;
+
+        if (data.method === 'verto.attach' && dialog) {
+            delete dialog.verto.dialogs[dialog.callID];
+            dialog.rtc.stop();
+            dialog = null;
+        }
+
+        if (dialog) {
+            switch (data.method) {
+            case 'verto.bye':
+                dialog.hangup(data.params);
+                break;
+            case 'verto.answer':
+                dialog.handleAnswer(data.params);
+                break;
+            case 'verto.media':
+                dialog.handleMedia(data.params);
+                break;
+            case 'verto.display':
+                dialog.handleDisplay(data.params);
+                break;
+            case 'verto.info':
+                dialog.handleInfo(data.params);
+                break;
+            default:
+                if (this.options.debug) {
+                    console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${dialog}, ${data.method}`);
+                }
+                break;
+            }
+        } else if (data.params.callID) {
+            switch (data.method) {
+            case 'verto.attach':
+                data.params.attach = true;
+
+                if (data.params.sdp && data.params.sdp.indexOf('m=video') > 0) {
+                    data.params.useVideo = true;
+                }
+
+                if (data.params.sdp && data.params.sdp.indexOf('stereo=1') > 0) {
+                    data.params.useStereo = true;
+                }
+
+                this.dialogs[dialog.callID] = new CVertoDialog(this.enum.direction.inbound, this, data.params);
+                this.dialogs[dialog.callID].setState(this.enum.state.recovering);
+
+                break;
+            case 'verto.invite':
+
+                if (data.params.sdp && data.params.sdp.indexOf('m=video') > 0) {
+                    data.params.wantVideo = true;
+                }
+
+                if (data.params.sdp && data.params.sdp.indexOf('stereo=1') > 0) {
+                    data.params.useStereo = true;
+                }
+
+                this.dialogs[dialog.callID] = new CVertoDialog(this.enum.direction.inbound, this, data.params);
+                break;
+            default:
+                if (this.options.debug) {
+                    console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
+                }
+                break;
+            }
+
+        }
+
+        if (data.params.callID) {
+            return {
+                method: data.method
+            };
+        }
+
+        switch (data.method) {
+        case 'verto.punt':
+            this.purge();
+            this.logout();
+            break;
+        case 'verto.event': {
+            let list = null;
+            let key  = null;
+
+            if (data.params) {
+                key = data.params.eventChannel;
+            }
+
+            if (key) {
+                list = this.eventSUBS[key];
+                if (!list) {
+                    list = this.eventSUBS[key.split('.')[0]];
+                }
+            }
+
+            if (!list && key && key === this.sessid) {
+                if (this.callbacks.onMessage) {
+                    this.callbacks.onMessage(this, null, this.enum.message.pvtEvent, data.params);
+                }
+            } else if (!list && key && this.dialogs[key]) {
+                this.dialogs[key].sendMessage(this.enum.message.pvtEvent, data.params);
+            } else if (!list) {
+                if (this.options.debug) {
+                    console.debug('CVerto::handleMessage: UNSUBBED or invalid Event ' + key + ' Ignored');
+                }
+            } else {
+                for (const i in list) {
+                    const sub = list[i];
+
+                    if (!sub || !sub.ready) {
+                        console.error('CVerto::handleMessage: invalid Event for ' + key + ' Ignored');
+                    } else if (sub.handler) {
+                        sub.handler(this, data.params, sub.userData);
+                    } else if (this.callbacks.onEvent) {
+                        this.callbacks.onEvent(this, data.params, sub.userData);
+                    } else if (this.options.debug) {
+                        console.log('CVerto::handleMessage: Event:', data.params);
+                    }
+                }
+            }
+
+            break;
+        }
+        case 'verto.info':
+            if (this.callbacks.onMessage) {
+                this.callbacks.onMessage(this, null, this.enum.message.info, data.params.msg);
+            }
+
+            if (this.options.debug) {
+                console.debug('CVerto::handleMessage: Message from: ' + data.params.msg.from, data.params.msg.body);
+            }
+
+            break;
+
+        case 'verto.clientReady':
+            if (this.callbacks.onMessage) {
+                this.callbacks.onMessage(this, null, this.enum.message.clientReady, data.params);
+            }
+
+            if (this.options.debug) {
+                console.debug('CVerto::handleMessage: Client is ready', data.params);
+            }
+
+            break;
+
+        default:
+            if (this.options.debug) {
+                console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
+            }
+            break;
+        }
+
     }
 
     //Check and get devices
@@ -86,6 +301,12 @@ class CVerto {
 
     get Devices() {}
 
+    /**
+     * UUID Generator Helper
+     *
+     * @method genUUID
+     * @return {String} UUID - UUID Version 4
+     */
     genUUID() {
         function S4(num) {
             let ret = num.toString(16);
