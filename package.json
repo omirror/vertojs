@@ -2,7 +2,7 @@
   "name": "vertojs",
   "version": "1.0.0",
   "description": "FreesSWITCH Verto JavaScript Client",
-  "main": "client.mjs",
+  "main": "CVerto.mjs",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
