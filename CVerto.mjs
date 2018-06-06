@@ -21,7 +21,7 @@ class CVerto {
      * @param {Object} callbacks
      */
     constructor(options, callbacks) {
-        this.options = Object.assign({
+        this.options = {
             login:          null,
             passwd:         null,
             socketUrl:      null,
@@ -33,8 +33,8 @@ class CVerto {
             iceServers:     false,
             ringSleep:      6000,
             sessid:         null,
-            debug:          false
-        }, options);
+            debug:          false,
+            ...options };
 
         /* @todo FSRTC to implemetation
         if (this.options.deviceParams.useCamera) {
@@ -141,6 +141,16 @@ class CVerto {
         }
 
         let dialog = data.params.callID ? this.dialogs[data.params.callID] : null;
+
+        switch (data.method) {
+        case 'verto.attach':
+            if (dialog) {
+                delete dialog.verto.dialogs[dialog.callID];
+                dialog.rtc.stop();
+            }
+            break;
+        case 'verto.bye':
+        }
 
         if (data.method === 'verto.attach' && dialog) {
             delete dialog.verto.dialogs[dialog.callID];

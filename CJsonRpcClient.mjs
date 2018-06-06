@@ -17,7 +17,7 @@ class CJsonRpcClient {
      * @param {Object} options - Options object
      */
     constructor(options) {
-        this.options = Object.assign({
+        this.options = {
             socketUrl:      null,
             onmessage:      null,           // Not requested response callback
             login:          null,
@@ -25,8 +25,8 @@ class CJsonRpcClient {
             sessid:         null,
             loginParams:    null,
             userVariables:  null,
-            debug:          false
-        }, options);
+            debug:          false,
+            ...options };
 
         this.m_socket           = null;
         this.queue              = [];
