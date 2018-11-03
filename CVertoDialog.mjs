@@ -16,7 +16,7 @@ class CVertoDialog {
      * @constructor
      */
     constructor(direction, verto, params) {
-        this.params = {
+        this.params = Object.freeze({
             useVideo:       verto.options.useVideo,
             useStereo:      verto.options.useStereo,
             screenShare:    false,
@@ -25,7 +25,9 @@ class CVertoDialog {
             useSpeak:       verto.options.deviceParams.useSpeak,
             login:          verto.options.login,
             videoParams:    verto.options.videoParams,
-            ...params };
+            debug:          false,
+            ...params
+        });
 
         if (!this.params.screenShare) {
             this.params.useCamera = verto.options.deviceParams.useCamera;

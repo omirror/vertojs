@@ -21,7 +21,7 @@ class CVerto {
      * @param {Object} callbacks
      */
     constructor(options, callbacks) {
-        this.options = {
+        this.options = Object.freeze({
             login:          null,
             passwd:         null,
             socketUrl:      null,
@@ -34,7 +34,8 @@ class CVerto {
             ringSleep:      6000,
             sessid:         null,
             debug:          false,
-            ...options };
+            ...options
+        });
 
         /* @todo FSRTC to implemetation
         if (this.options.deviceParams.useCamera) {
@@ -49,7 +50,18 @@ class CVerto {
             this.options.deviceParams.useSpeak = 'any';
         }
 
-        this.sessid    = this.options.sessid || this.genUUID();
+        this.sessid = this.options.sessid || this.genUUID();
+
+        if (typeof(this.options.logger) === 'object') {
+            this.logger = this.options.logger;
+        } else {
+            this.logger = {
+                debug: this.options.debug ? (msg) => console.debug(`${this.sessid}: DEBUG:${msg}`) : () => {},
+                info:  (msg) => console.log(`${this.sessid}: INFO:${msg}`),
+                error: (err) => console.error(`${this.sessid}: ${this.options.debug ? err.stack : err.message}`)
+            };
+        }
+
         this.dialogs   = {};
         this.callbacks = callbacks || {};
         this.eventSUBS = {};
@@ -61,8 +73,9 @@ class CVerto {
             userVariables:  this.options.userVariables,
             sessid:         this.sessid,
             debug:          this.options.debug,
-            onmessage:     (e) => this.handleMessage(e.eventData),
-            onWSConnect:   (rpcClient) => {
+            logger:         this.options.logger,
+            onmessage:      (e) => this.handleMessage(e.eventData),
+            onWSConnect:    (rpcClient) => {
                 let params = {};
                 if (this.options.login && this.options.passwd) {
                     params = {
@@ -78,7 +91,7 @@ class CVerto {
                     }
                 });
             },
-            onWSClose:     (rpcClient) => {
+            onWSClose:      (rpcClient) => {
                 if (this.callbacks.onWSClose) {
                     this.callbacks.onWSClose(this);
                 }
@@ -128,15 +141,12 @@ class CVerto {
      * @method handleMessage
      * @param {Object} data - Message object
      */
+
     handleMessage(data) {
-        if (this.options.debug) {
-            console.debug('CVerto::handleMessage: message received', data);
-        }
+        this.logger.debug(`CVerto::handleMessage: message received ${JSON.stringify(data)}`);
 
         if (!data || !data.method) {
-            if (this.options.debug) {
-                console.error(`CVerto::handleMessage: Bad data: ${data}`);
-            }
+            this.logger.error(new Error(`CVerto::handleMessage: Bad data: ${data}`));
             return;
         }
 
@@ -176,9 +186,7 @@ class CVerto {
                 dialog.handleInfo(data.params);
                 break;
             default:
-                if (this.options.debug) {
-                    console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${dialog}, ${data.method}`);
-                }
+                this.logger.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${dialog}, ${data.method}`);
                 break;
             }
         } else if (data.params.callID) {
@@ -194,7 +202,8 @@ class CVerto {
                     data.params.useStereo = true;
                 }
 
-                this.dialogs[dialog.callID] = new CVertoDialog(this.enum.direction.inbound, this, data.params);
+                this.dialogs[dialog.callID] =
+                    new CVertoDialog(this.enum.direction.inbound, this, data.params);
                 this.dialogs[dialog.callID].setState(this.enum.state.recovering);
 
                 break;
@@ -208,12 +217,11 @@ class CVerto {
                     data.params.useStereo = true;
                 }
 
-                this.dialogs[dialog.callID] = new CVertoDialog(this.enum.direction.inbound, this, data.params);
+                this.dialogs[dialog.callID] =
+                    new CVertoDialog(this.enum.direction.inbound, this, data.params);
                 break;
             default:
-                if (this.options.debug) {
-                    console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
-                }
+                this.logger.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
                 break;
             }
 
@@ -252,21 +260,19 @@ class CVerto {
             } else if (!list && key && this.dialogs[key]) {
                 this.dialogs[key].sendMessage(this.enum.message.pvtEvent, data.params);
             } else if (!list) {
-                if (this.options.debug) {
-                    console.debug('CVerto::handleMessage: UNSUBBED or invalid Event ' + key + ' Ignored');
-                }
+                this.logger.debug(`CVerto::handleMessage: UNSUBBED or invalid Event ${key} Ignored`);
             } else {
                 for (const i in list) {
                     const sub = list[i];
 
                     if (!sub || !sub.ready) {
-                        console.error('CVerto::handleMessage: invalid Event for ' + key + ' Ignored');
+                        this.logger.error(new Error(`CVerto::handleMessage: invalid Event for ${key} Ignored`));
                     } else if (sub.handler) {
                         sub.handler(this, data.params, sub.userData);
                     } else if (this.callbacks.onEvent) {
                         this.callbacks.onEvent(this, data.params, sub.userData);
-                    } else if (this.options.debug) {
-                        console.log('CVerto::handleMessage: Event:', data.params);
+                    } else {
+                        this.logger.info(`CVerto::handleMessage: Event: ${JSON.strinfigy(data.params)}`);
                     }
                 }
             }
@@ -278,9 +284,7 @@ class CVerto {
                 this.callbacks.onMessage(this, null, this.enum.message.info, data.params.msg);
             }
 
-            if (this.options.debug) {
-                console.debug('CVerto::handleMessage: Message from: ' + data.params.msg.from, data.params.msg.body);
-            }
+            this.logger.debug(`CVerto::handleMessage: Message from: ${data.params.msg.from}, ${data.params.msg.body}`);
 
             break;
 
@@ -289,16 +293,12 @@ class CVerto {
                 this.callbacks.onMessage(this, null, this.enum.message.clientReady, data.params);
             }
 
-            if (this.options.debug) {
-                console.debug('CVerto::handleMessage: Client is ready', data.params);
-            }
+            this.logger.debug(`CVerto::handleMessage: Client is ready. ${JSON.stringify(data.params)}`);
 
             break;
 
         default:
-            if (this.options.debug) {
-                console.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
-            }
+            this.logger.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
             break;
         }
 
@@ -317,6 +317,7 @@ class CVerto {
      * @method genUUID
      * @return {String} UUID - UUID Version 4
      */
+
     genUUID() {
         function S4(num) {
             let ret = num.toString(16);
