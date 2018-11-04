@@ -9,10 +9,12 @@
  *
  * @module CVerto
  */
+
 import { CJsonRpcClient } from './CJsonRpcClient.mjs';
 import { CVertoDialog } from './CVertoDialog.mjs';
 
 class CVerto {
+
     /**
      * CVerto class constructor
      *
@@ -20,6 +22,7 @@ class CVerto {
      * @param {Object} options
      * @param {Object} callbacks
      */
+
     constructor(options, callbacks) {
         this.options = Object.freeze({
             login:          null,
@@ -56,8 +59,8 @@ class CVerto {
             this.logger = this.options.logger;
         } else {
             this.logger = {
-                debug: this.options.debug ? (msg) => console.debug(`${this.sessid}: DEBUG:${msg}`) : () => {},
-                info:  (msg) => console.log(`${this.sessid}: INFO:${msg}`),
+                debug: this.options.debug ? (...args) => console.debug(this.sessid, ...args) : () => {},
+                info:  (...args) => console.log(this.sessid, ...args),
                 error: (err) => console.error(`${this.sessid}: ${this.options.debug ? err.stack : err.message}`)
             };
         }
@@ -74,7 +77,7 @@ class CVerto {
             sessid:         this.sessid,
             debug:          this.options.debug,
             logger:         this.options.logger,
-            onmessage:      (e) => this.handleMessage(e.eventData),
+            onMessage:      (e) => this.handleMessage(e.eventData),
             onWSConnect:    (rpcClient) => {
                 let params = {};
                 if (this.options.login && this.options.passwd) {
@@ -143,10 +146,10 @@ class CVerto {
      */
 
     handleMessage(data) {
-        this.logger.debug(`CVerto::handleMessage: message received ${JSON.stringify(data)}`);
+        this.logger.debug('CVerto::handleMessage: message received', data);
 
         if (!data || !data.method) {
-            this.logger.error(new Error(`CVerto::handleMessage: Bad data: ${data}`));
+            this.logger.error(new Error(`CVerto::handleMessage: Bad data: ${JSON.stringify(data)}`));
             return;
         }
 
@@ -186,7 +189,7 @@ class CVerto {
                 dialog.handleInfo(data.params);
                 break;
             default:
-                this.logger.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${dialog}, ${data.method}`);
+                this.logger.debug('CVerto::handleMessage: Invalid method or non-existant call referece.', dialog, data.method);
                 break;
             }
         } else if (data.params.callID) {
@@ -221,7 +224,7 @@ class CVerto {
                     new CVertoDialog(this.enum.direction.inbound, this, data.params);
                 break;
             default:
-                this.logger.debug(`CVerto::handleMessage: Invalid method or non-existant call referece. ${data.method}`);
+                this.logger.debug('CVerto::handleMessage: Invalid method or non-existant call referece.', data.method);
                 break;
             }
 
@@ -272,7 +275,7 @@ class CVerto {
                     } else if (this.callbacks.onEvent) {
                         this.callbacks.onEvent(this, data.params, sub.userData);
                     } else {
-                        this.logger.info(`CVerto::handleMessage: Event: ${JSON.strinfigy(data.params)}`);
+                        this.logger.info('CVerto::handleMessage: Event:', data.params);
                     }
                 }
             }
@@ -284,7 +287,7 @@ class CVerto {
                 this.callbacks.onMessage(this, null, this.enum.message.info, data.params.msg);
             }
 
-            this.logger.debug(`CVerto::handleMessage: Message from: ${data.params.msg.from}, ${data.params.msg.body}`);
+            this.logger.debug(`CVerto::handleMessage: Message from: ${data.params.msg.from}`, data.params.msg.body);
 
             break;
 
@@ -293,7 +296,7 @@ class CVerto {
                 this.callbacks.onMessage(this, null, this.enum.message.clientReady, data.params);
             }
 
-            this.logger.debug(`CVerto::handleMessage: Client is ready. ${JSON.stringify(data.params)}`);
+            this.logger.debug('CVerto::handleMessage: Client is ready.', data.params);
 
             break;
 

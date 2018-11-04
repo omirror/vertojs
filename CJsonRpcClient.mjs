@@ -22,7 +22,7 @@ class CJsonRpcClient {
     constructor(options) {
         this.options = Object.freeze({
             socketUrl:      null,
-            onmessage:      null,           // Not requested response callback
+            onMessage:      null,           // Not requested response callback
             login:          null,
             passwd:         null,
             sessid:         null,
@@ -36,8 +36,8 @@ class CJsonRpcClient {
             this.logger = this.options.logger;
         } else {
             this.logger = {
-                debug: this.options.debug ? (msg) => console.debug(`${this.options.sessid}: DEBUG:${msg}`) : () => {},
-                info:  (msg) => console.log(`${this.options.sessid}: INFO:${msg}`),
+                debug: this.options.debug ? (...args) => console.debug(this.options.sessid, ...args) : () => {},
+                info:  (...args) => console.log(this.options.sessid, ...args),
                 error: (err) => console.error(`${this.options.sessid}: ${this.options.debug ? err.stack : err.message}`)
             };
         }
@@ -156,7 +156,7 @@ class CJsonRpcClient {
      */
 
     _onWSMessage(event) {
-        this.logger.debug(`CJsonRpcClient::_onWSMessage ${JSON.stringify(event)}`);
+        this.logger.debug('CJsonRpcClient::_onWSMessage', event);
         let response;
         try {
             response = JSON.parse(event.data);
@@ -180,16 +180,16 @@ class CJsonRpcClient {
         }
 
         // Handler of the response with no request
-        if (this.options.onmessage) {
+        if (this.options.onMessage) {
             event.eventData = response || {};
-            const reply     = this.options.onmessage(event);
+            const reply     = this.options.onMessage(event);
             if (reply && typeof(reply) === 'object' && event.eventData.id) {
                 const msg = {
                     jsonrpc: '2.0',
                     id:       event.eventData.id,
                     result:   reply
                 };
-                this.logger.debug(`CJsonRpcClient::_onWSMessage: Sending Reply ${JSON.strinfigy(msg)}`);
+                this.logger.debug('CJsonRpcClient::_onWSMessage: Sending Reply', msg);
                 this.socket.send(JSON.stringify(msg));
             }
         }
@@ -259,7 +259,7 @@ class CJsonRpcClient {
      */
 
     _onWSError(event) {
-        this.logger.debug(`CJsonRpcClient::_onWSError ${JSON.strinfigy(event)}`);
+        this.logger.debug('CJsonRpcClient::_onWSError', event);
 
         this.m_socket = null;
 

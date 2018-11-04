@@ -9,12 +9,15 @@
  *
  * @module CVertoDialog
  */
+
 class CVertoDialog {
+
     /**
      * CVertoDialog class constructor
      *
      * @constructor
      */
+
     constructor(direction, verto, params) {
         this.params = Object.freeze({
             useVideo:       verto.options.useVideo,
