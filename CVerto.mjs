@@ -1,5 +1,5 @@
 /**
- * 2018
+ * 2019
  *
  * Contributor(s):
  *
@@ -11,7 +11,8 @@
  */
 
 import { CJsonRpcClient } from './CJsonRpcClient.mjs';
-import { CVertoDialog } from './CVertoDialog.mjs';
+import { CVertoDialog }   from './CVertoDialog.mjs';
+import { genUuid }        from './Helpers.mjs';
 
 class CVerto {
 
@@ -40,10 +41,12 @@ class CVerto {
             ...options
         });
 
-        /* @todo FSRTC to implemetation
-        if (this.options.deviceParams.useCamera) {
-            FSRTC.getValidRes(this.options.deviceParams.useCamera, this.options.deviceParams.onResCheck);
-        }*/
+        /*
+         * @todo FSRTC to implemetation
+         * if (this.options.deviceParams.useCamera) {
+         *   FSRTC.getValidRes(this.options.deviceParams.useCamera, this.options.deviceParams.onResCheck);
+         * }
+         */
 
         if (!this.options.deviceParams.useMic) {
             this.options.deviceParams.useMic = 'any';
@@ -53,15 +56,15 @@ class CVerto {
             this.options.deviceParams.useSpeak = 'any';
         }
 
-        this.sessid = this.options.sessid || this.genUUID();
+        this.sessid = this.options.sessid || genUuid();
 
-        if (typeof(this.options.logger) === 'object') {
+        if (typeof this.options.logger === 'object') {
             this.logger = this.options.logger;
         } else {
             this.logger = {
                 debug: this.options.debug ? (...args) => console.debug(this.sessid, ...args) : () => {},
                 info:  (...args) => console.log(this.sessid, ...args),
-                error: (err) => console.error(`${this.sessid}: ${this.options.debug ? err.stack : err.message}`)
+                error: (err) => console.error(`${this.sessid} ${this.options.debug ? err.stack : err.message}`)
             };
         }
 
@@ -77,8 +80,8 @@ class CVerto {
             sessid:         this.sessid,
             debug:          this.options.debug,
             logger:         this.options.logger,
-            onMessage:      (e) => this.handleMessage(e.eventData),
-            onWSConnect:    (rpcClient) => {
+            onMessage: (e) => this.handleMessage(e.eventData),
+            onWSConnect: (rpcClient) => {
                 let params = {};
                 if (this.options.login && this.options.passwd) {
                     params = {
@@ -94,7 +97,7 @@ class CVerto {
                     }
                 });
             },
-            onWSClose:      (rpcClient) => {
+            onWSClose: () => {
                 if (this.callbacks.onWSClose) {
                     this.callbacks.onWSClose(this);
                 }
@@ -163,6 +166,7 @@ class CVerto {
             }
             break;
         case 'verto.bye':
+        default:
         }
 
         if (data.method === 'verto.attach' && dialog) {
@@ -205,9 +209,9 @@ class CVerto {
                     data.params.useStereo = true;
                 }
 
-                this.dialogs[dialog.callID] =
+                this.dialogs[data.params.callID] =
                     new CVertoDialog(this.enum.direction.inbound, this, data.params);
-                this.dialogs[dialog.callID].setState(this.enum.state.recovering);
+                this.dialogs[data.params.callID].setState(this.enum.state.recovering);
 
                 break;
             case 'verto.invite':
@@ -220,7 +224,7 @@ class CVerto {
                     data.params.useStereo = true;
                 }
 
-                this.dialogs[dialog.callID] =
+                this.dialogs[data.params.callID] =
                     new CVertoDialog(this.enum.direction.inbound, this, data.params);
                 break;
             default:
@@ -231,9 +235,7 @@ class CVerto {
         }
 
         if (data.params.callID) {
-            return {
-                method: data.method
-            };
+            return { method: data.method };
         }
 
         switch (data.method) {
@@ -242,38 +244,34 @@ class CVerto {
             this.logout();
             break;
         case 'verto.event': {
-            let list = null;
-            let key  = null;
+            let key  = NaN;
+            let list = NaN;
 
             if (data.params) {
-                key = data.params.eventChannel;
-            }
-
-            if (key) {
-                list = this.eventSUBS[key];
-                if (!list) {
-                    list = this.eventSUBS[key.split('.')[0]];
+                if (data.params.eventChannel) {
+                    key = data.params.eventChannel;
+                    list = this.eventSUBS[key] || this.eventSUBS[key.split('.')[0]];
                 }
             }
 
-            if (!list && key && key === this.sessid) {
+            if (!list && key === this.sessid) {
                 if (this.callbacks.onMessage) {
                     this.callbacks.onMessage(this, null, this.enum.message.pvtEvent, data.params);
                 }
-            } else if (!list && key && this.dialogs[key]) {
+            } else if (!list && this.dialogs[key]) {
                 this.dialogs[key].sendMessage(this.enum.message.pvtEvent, data.params);
             } else if (!list) {
-                this.logger.debug(`CVerto::handleMessage: UNSUBBED or invalid Event ${key} Ignored`);
+                this.logger.debug(`CVerto::handleMessage: UNSUBBED or invalid Event [${key}] Ignored`);
             } else {
                 for (const i in list) {
                     const sub = list[i];
 
                     if (!sub || !sub.ready) {
-                        this.logger.error(new Error(`CVerto::handleMessage: invalid Event for ${key} Ignored`));
-                    } else if (sub.handler) {
+                        this.logger.error(new Error(`CVerto::handleMessage: invalid Event for [${key}] Ignored`));
+                    } else if (sub && sub.handler) {
                         sub.handler(this, data.params, sub.userData);
                     } else if (this.callbacks.onEvent) {
-                        this.callbacks.onEvent(this, data.params, sub.userData);
+                        this.callbacks.onEvent(this, data.params, sub ? sub.userData : undefined);
                     } else {
                         this.logger.info('CVerto::handleMessage: Event:', data.params);
                     }
@@ -286,18 +284,14 @@ class CVerto {
             if (this.callbacks.onMessage) {
                 this.callbacks.onMessage(this, null, this.enum.message.info, data.params.msg);
             }
-
             this.logger.debug(`CVerto::handleMessage: Message from: ${data.params.msg.from}`, data.params.msg.body);
-
             break;
 
         case 'verto.clientReady':
             if (this.callbacks.onMessage) {
                 this.callbacks.onMessage(this, null, this.enum.message.clientReady, data.params);
             }
-
             this.logger.debug('CVerto::handleMessage: Client is ready.', data.params);
-
             break;
 
         default:
@@ -313,29 +307,6 @@ class CVerto {
     }
 
     get Devices() {}
-
-    /**
-     * UUID Generator Helper
-     *
-     * @method genUUID
-     * @return {String} UUID - UUID Version 4
-     */
-
-    genUUID() {
-        function S4(num) {
-            let ret = num.toString(16);
-            if (ret.length < 4) {
-                ret.padStart(4, '0');
-            }
-            return ret;
-        }
-        const cryptoObj = window.crypto || window.msCrypto; // IE 11
-        const buf       = new Uint16Array(8);
-
-        cryptoObj.getRandomValues(buf);
-
-        return `${S4(buf[0])}${S4(buf[1])}-${S4(buf[2])}-${S4(buf[3])}-${S4(buf[4])}-${S4(buf[5])}${S4(buf[6])}${S4(buf[7])}`;
-    }
 }
 
 export { CVerto };

@@ -21,18 +21,18 @@ class CJsonRpcClient {
 
     constructor(options) {
         this.options = Object.freeze({
-            socketUrl:      null,
-            onMessage:      null,           // Not requested response callback
-            login:          null,
-            passwd:         null,
-            sessid:         null,
-            loginParams:    null,
-            userVariables:  null,
-            debug:          false,
+            socketUrl:     NaN,
+            onMessage:     NaN,           // Not requested response callback
+            login:         NaN,
+            passwd:        NaN,
+            sessid:        NaN,
+            loginParams:   NaN,
+            userVariables: NaN,
+            debug:         false,
             ...options
         });
 
-        if (typeof(this.options.logger) === 'object') {
+        if (typeof this.options.logger === 'object') {
             this.logger = this.options.logger;
         } else {
             this.logger = {
@@ -41,7 +41,7 @@ class CJsonRpcClient {
                 error: (err) => console.error(`${this.options.sessid}: ${this.options.debug ? err.stack : err.message}`)
             };
         }
-        this.m_socket           = null;
+        this.m_socket           = NaN;
         this.queue              = [];
         this._current_id        = 1;        // the id to match request/response
         this._ws_callbacks      = {};
@@ -64,7 +64,7 @@ class CJsonRpcClient {
 
         if (this.socketRetrying) {
             clearTimeout(this.socketRetrying);
-            this.socketRetrying = null;
+            this.socketRetrying = NaN;
         }
 
         this.m_socket           = new WebSocket(this.options.socketUrl);
@@ -165,7 +165,7 @@ class CJsonRpcClient {
             return;
         }
 
-        if (typeof(response) == 'object' && response.jsonrpc == '2.0' && response.id) {
+        if (typeof response == 'object' && response.jsonrpc == '2.0' && response.id) {
             if (response.result && this._ws_callbacks[response.id]) {
                 const success_cb = this._ws_callbacks[response.id].success_cb;
                 delete this._ws_callbacks[response.id];
@@ -183,7 +183,7 @@ class CJsonRpcClient {
         if (this.options.onMessage) {
             event.eventData = response || {};
             const reply     = this.options.onMessage(event);
-            if (reply && typeof(reply) === 'object' && event.eventData.id) {
+            if (reply && typeof reply === 'object' && event.eventData.id) {
                 const msg = {
                     jsonrpc: '2.0',
                     id:       event.eventData.id,
@@ -232,7 +232,7 @@ class CJsonRpcClient {
     _onWSClose() {
         this.logger.debug('CJsonRpcClient::_onWSClose');
 
-        this.m_socket = null;
+        this.m_socket = NaN;
 
         if (this.options.onWSClose) {
             this.options.onWSClose(this);
@@ -261,7 +261,7 @@ class CJsonRpcClient {
     _onWSError(event) {
         this.logger.debug('CJsonRpcClient::_onWSError', event);
 
-        this.m_socket = null;
+        this.m_socket = NaN;
 
         if (this.options.onWSError) {
             this.options.onWSError(this, event);
