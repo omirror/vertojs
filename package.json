@@ -16,7 +16,5 @@
   ],
   "author": "Anatoly Y. <iskhartakh@gmail.com>",
   "license": "BSD 2-Clause",
-  "dependencies": {
-    "verto": "0.1.1"
-  }
+  "dependencies": {}
 }
