@@ -10,9 +10,10 @@
  * @module CVertoDialog
  */
 
-import { CRtc } from './CRtc.mjs';
+import { CLogger }       from './CLogger.mjs';
+import { CRtc }          from './CRtc.mjs';
 import { CRtcCallbacks } from './CRtcCallbacks.mjs';
-import { genUuid } from './Helpers.mjs';
+import { genUuid }       from './Helpers.mjs';
 
 class CVertoDialog {
 
@@ -22,13 +23,13 @@ class CVertoDialog {
      * @constructor
      * @param {String} direction - Call direction
      * @param {CVerto} verto - CVerto object
-     * @param {Object} params - Options
+     * @param {Object} message - Verto event message
      */
 
-    constructor(direction, verto, params) {
-        this.params = {
-            useVideo:       verto.options.useVideo,
-            useStereo:      verto.options.useStereo,
+    constructor(direction, verto, message) {
+        this._params = {
+            useVideo:       message.params.sdp && message.params.sdp.indexOf('m=video') > 0,
+            useStereo:      message.params.sdp && message.params.sdp.indexOf('stereo=1') > 0,
             screenShare:    false,
             useCamera:      false,
             useMic:         verto.options.deviceParams.useMic,
@@ -36,94 +37,98 @@ class CVertoDialog {
             login:          verto.options.login,
             videoParams:    verto.options.videoParams,
             debug:          false,
-            ...params
+            ...message.params
         };
 
-        if (!this.params.screenShare) {
-            this.params.useCamera = verto.options.deviceParams.useCamera;
+        if (!this._params.screenShare) {
+            this._params.useCamera = verto.options.deviceParams.useCamera;
         }
 
-        this.verto       = verto;
-        this.direction   = direction;
-        this.lastState   = verto.enum.state.new;
-        this.state       = this.lastState;
-        this.callbacks   = verto.callbacks;
-        this.answered    = false;
-        this.attach      = params.attach      || false;
-        this.screenShare = params.screenShare || false;
-        this.useCamera   = this.params.useCamera;
-        this.useMic      = this.params.useMic;
-        this.useSpeak    = this.params.useSpeak;
+        this._verto       = verto;
+        this._direction   = direction;
+        this._lastState   = this._verto.STATE.NEW;
+        this._state       = this._lastState;
+        this._callbacks   = this._verto.callbacks;
+        this._answered    = false;
+        this._attach      = Boolean(message.params.attach);
+        this._screenShare = Boolean(message.params.screenShare);
+        this._useCamera   = this._params.useCamera;
+        this._useMic      = this._params.useMic;
+        this._useSpeak    = this._params.useSpeak;
 
-        this.callID = genUuid();
+        this._callID = this._params.callID || genUuid();
 
-        if (typeof verto.options.logger === 'object') {
-            this.logger = verto.options.logger;
+        if (typeof this._verto.options.logger === 'object') {
+            this._logger = this._verto.options.logger;
         } else {
-            this.logger = {
-                debug: verto.options.debug ? (...args) => console.debug(this.callID, this.constructor.name, ...args) : () => {},
-                info:  (...args) => console.log(this.callID, this.constructor.name, ...args),
-                error: (err) => console.error(`${this.callID} ${this.constructor.name} ${this.verto.options.debug ? err.stack : err.message}`)
-            };
+            this._logger = new CLogger(`${this._callID} CVertoDialog`);
         }
 
-        if (this.verto.options.tag) {
-            this.audioStream = document.getElementById(this.verto.options.tag);
-            if (this.params.useVideo) {
-                this.videoStream = this.audioStream;
+        if (this._verto.options.tag) {
+            this._audioStream = document.getElementById(this._verto.options.tag);
+            if (this._params.useVideo) {
+                this._videoStream = this._audioStream;
             }
         } else {
-            this.logger.error(new Error('"tag" param missed'));
+            this._logger.error(new Error('"tag" param missed'));
         }
 
-        if (this.params.localTag) {
-            this.localVideo = document.getElementById(this.params.localTag);
+        if (this._params.localTag) {
+            this._localVideo = document.getElementById(this._params.localTag);
         }
 
-        if (this.direction == verto.enum.direction.inbound) {
-            if (this.params.display_direction === 'outbound') {
-                this.params.remote_caller_id_name = this.params.caller_id_name;
-                this.params.remote_caller_id_number = this.params.caller_id_number;
+        if (this._direction === this._verto.DIRECTION.INBOUND) {
+            if (this._params.display_direction === 'outbound') {
+                this._params.remote_caller_id_name = this._params.caller_id_name || 'Nobody';
+                this._params.remote_caller_id_number = this._params.caller_id_number || 'Unknown';
             } else {
-                this.params.remote_caller_id_name = this.params.callee_id_name;
-                this.params.remote_caller_id_number = this.params.callee_id_number;
-            }
-
-            if (!this.params.remote_caller_id_name) {
-                this.params.remote_caller_id_name = 'Nobody';
-            }
-
-            if (!this.params.remote_caller_id_number) {
-                this.params.remote_caller_id_number = 'Unknown';
+                this._params.remote_caller_id_name = this._params.callee_id_name || 'Nobody';
+                this._params.remote_caller_id_number = this._params.callee_id_number || 'Unknown';
             }
         } else {
-            this.params.remote_caller_id_name = 'Outbound Call';
-            this.params.remote_caller_id_number = this.params.destination_number;
+            this._params.remote_caller_id_name = 'Outbound Call';
+            this._params.remote_caller_id_number = this._params.destination_number;
         }
 
         this._rtc = new CRtc({
-            verto:       this.verto,
+            verto:       this._verto,
             callbacks:   new CRtcCallbacks(this),
-            localVideo:  this.screenShare ? null : this.localVideo,
-            useVideo:    this.params.useVideo ? this.videoStream : null,
-            useAudio:    this.audioStream,
-            useStereo:   this.params.useStereo,
-            videoParams: this.params.videoParams,
-            audioParams: verto.options.audioParams,
-            iceServers:  verto.options.iceServers,
-            screenShare: this.screenShare,
-            useCamera:   this.useCamera,
-            useMic:      this.useMic,
-            useSpeak:    this.useSpeak
+            localVideo:  this._screenShare ? null : this.localVideo,
+            useVideo:    this._params.useVideo ? this.videoStream : null,
+            useAudio:    this._audioStream,
+            useStereo:   this._params.useStereo,
+            videoParams: this._params.videoParams,
+            audioParams: this._verto.options.audioParams,
+            iceServers:  this._verto.options.iceServers,
+            screenShare: this._screenShare,
+            useCamera:   this._useCamera,
+            useMic:      this._useMic,
+            useSpeak:    this._useSpeak
         });
 
-        if (this.direction == verto.enum.direction.inbound) {
-            if (this.attach) {
+        if (this._direction === this._verto.DIRECTION.INBOUND) {
+            if (this._attach) {
                 this.answer();
             } else {
                 this.ring();
             }
         }
+    }
+
+    /**
+     * CVerto object
+     */
+
+    get verto() {
+        return this._verto;
+    }
+
+    /**
+     * Attach flag
+     */
+
+    get attach() {
+        return this._attach;
     }
 
     /**
@@ -135,29 +140,53 @@ class CVertoDialog {
     }
 
     /**
+     * Verto proto messages handler
+     *
+     * @method handleMessage
+     * @param {Object} message - Message object
+     */
+
+    handleMessage(message) {
+        const logger = this._logger.method('handleMessage', this.options.debug);
+        logger.debug('message received', message);
+        switch (message.method) {
+        case 'verto.bye':
+            this.hangup(message.params);
+            break;
+        case 'verto.answer':
+            this.handleAnswer(message.params);
+            break;
+        case 'verto.media':
+            this.handleMedia(message.params);
+            break;
+        case 'verto.display':
+            this.handleDisplay(message.params);
+            break;
+        case 'verto.info':
+            this.handleInfo(message.params);
+            break;
+        default:
+            logger.warn('Unknown event', message);
+        }
+    }
+
+    /**
      * Json RPC Call
      *
      * @param {String} method - RPC Method
      * @param {Object} params - RPC Method params
      */
 
-    /* eslint no-continue: 0 */
-
     sendMethod(method, options) {
+        const logger = this._logger.method('sendMethod');
         const params = { ...options };
 
-        params.dialogParams = {};
+        params.dialogParams = { ...params.dialogParams, callID: this._callID };
 
-        for (const i in this.params) {
-            if (i === 'sdp' && method !== 'verto.invite' && method !== 'verto.attach') {
-                continue;
-            }
-            params.dialogParams[i] = this.params[i];
-        }
-        this.verto.rpcClient.call(method, params, () => {
-            this.logger.debug('sendMethod: Success');
+        this._verto.rpcClient.call(method, params, () => {
+            logger.debug('success');
         }, (err) => {
-            this.logger.error(err);
+            logger.error(new Error((err && err.stack) || err));
         });
     }
 
@@ -167,26 +196,21 @@ class CVertoDialog {
      * @param {Object} params - Hangup params
      */
 
-    hangup(params) {
-        this.logger.debug('hangup fired');
-        if (params) {
-            if (params.causeCode) {
-                this.causeCode = params.causeCode;
-            }
+    hangup(params = {}) {
+        const logger = this._logger.method('hangup');
+        logger.debug(params);
 
-            if (params.cause) {
-                this.cause = params.cause;
-            }
+        this._causeCode = params.causeCode;
+        this._cause = params.cause;
+
+        if (!this._cause && !this._causeCode) {
+            this._cause = 'NORMAL_CLEARING';
         }
 
-        if (!this.cause && !this.causeCode) {
-            this.cause = 'NORMAL_CLEARING';
-        }
-
-        if (this.state >= this.verto.enum.state.new && this.state < this.verto.enum.state.hangup) {
-            this.setState(this.verto.enum.state.hangup);
-        } else if (this.state < this.verto.enum.state.destroy) {
-            this.setState(this.verto.enum.state.destroy);
+        if (this._state >= this._verto.STATE.NEW && this._state < this._verto.STATE.HANGUP) {
+            this.setState(this._verto.STATE.HANGUP);
+        } else if (this._state < this._verto.STATE.DESTROY) {
+            this.setState(this._verto.STATE.DESTROY);
         }
     }
 
@@ -194,35 +218,30 @@ class CVertoDialog {
      * Answer
      */
 
-    answer(params = {}) {
-        this.logger.debug('answer fired', params);
-        if (this.answered) {
+    answer(data) {
+        const logger = this._logger.method('answer');
+        logger.debug(data);
+        const params = { ...data };
+
+        if (this._answered) {
             return;
         }
 
-        params.sdp = this.params.sdp;
+        params.sdp = this._params.sdp;
 
         if (params.useVideo) {
-            this.logger.debug('answer Video request received');
+            logger.debug('answer Video request received');
         }
 
-        this.params.callee_id_name = params.callee_id_name;
-        this.params.callee_id_number = params.callee_id_number;
+        this._params.callee_id_name = params.callee_id_name;
+        this._params.callee_id_number = params.callee_id_number;
 
-        if (params.useCamera) {
-            this.useCamera = params.useCamera;
-        }
-
-        if (params.useMic) {
-            this.useMic = params.useMic;
-        }
-
-        if (params.useSpeak) {
-            this.useSpeak = params.useSpeak;
-        }
+        this._useCamera = params.useCamera || 'any';
+        this._useMic = params.useMic || 'any';
+        this._useSpeak = params.useSpeak || 'any';
 
         //this.rtc.createAnswer(params);
-        this.answered = true;
+        this._answered = true;
     }
 
     /**
@@ -230,8 +249,9 @@ class CVertoDialog {
      */
 
     ring() {
-        this.logger.debug('ring fired. Ringing');
-        this.setState(this.verto.enum.state.ringing);
+        const logger = this._logger.method('ring');
+        logger.debug('fired');
+        this.setState(this._verto.STATE.RINGING);
     }
 
     /**
@@ -240,24 +260,33 @@ class CVertoDialog {
      */
 
     setState(state) {
-        this.logger.debug('setState', state);
-        this.lastState = this.state;
-        this.state = state;
+        const logger = this._logger.method('setState');
+        logger.debug(state);
+        this._lastState = this._state;
+        this._state = state;
 
-        if (this.callbacks.onDialogState) {
-            this.callbacks.onDialogState(this);
+        if (this._callbacks.onDialogState) {
+            this._callbacks.onDialogState(this);
         }
 
-        switch(this.state) {
-        case this.verto.enum.state.hangup:
-            this.logger.debug('hangup state switch', this.lastState, this.verto.enum.state.requesting, this.lastState, this.verto.enum.state.hangup);
-            if (this.lastState > this.verto.enum.state.requesting && this.lastState < this.verto.enum.state.hangup) {
+        switch(this._state) {
+        case this._verto.STATE.HANGUP:
+            logger.debug('hangup state switch', this._lastState, this._verto.STATE.REQUESTING, this._lastState, this._verto.STATE.HANGUP);
+            if (this._lastState > this._verto.STATE.REQUESTING && this._lastState < this._verto.STATE.HANGUP) {
                 this.sendMethod('verto.bye', {});
             }
-            this.setState(this.verto.enum.state.destroy);
+            this.setState(this._verto.STATE.DESTROY);
+            break;
+        case this._verto.STATE.DESTROY:
+            this._verto.deleteDialog(this._callID);
+            if (this._params.screenShare) {
+                this.rtc.stopPeer();
+            } else {
+                //this.rtc.stop();
+            }
             break;
         default:
-            this.logger.debug('setState default', this.state);
+            logger.debug('unhandled state', this._state);
         }
     }
 

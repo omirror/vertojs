@@ -10,6 +10,8 @@
  * @module CJsonRpcClient
  */
 
+import { CLogger } from './CLogger.mjs';
+
 class CJsonRpcClient {
 
     /**
@@ -20,7 +22,7 @@ class CJsonRpcClient {
      */
 
     constructor(options) {
-        this.options = Object.freeze({
+        this._options = Object.freeze({
             socketUrl:     NaN,
             onMessage:     NaN,           // Not requested response callback
             login:         NaN,
@@ -32,23 +34,20 @@ class CJsonRpcClient {
             ...options
         });
 
-        if (typeof this.options.logger === 'object') {
-            this.logger = this.options.logger;
+        if (typeof this._options.logger === 'object') {
+            this._logger = this._options.logger;
         } else {
-            this.logger = {
-                debug: this.options.debug ? (...args) => console.debug(this.options.sessid, this.constructor.name, ...args) : () => {},
-                info:  (...args) => console.log(this.options.sessid, this.constructor.name, ...args),
-                error: (err) => console.error(`${this.options.sessid} ${this.constructor.name} ${this.options.debug ? err.stack : err.message}`)
-            };
+            this._logger = new CLogger(`${this._options.sessid} CJsonRpcClient`, this._options.debug);
         }
-        this.m_socket           = NaN;
-        this.queue              = [];
+
+        this._socket           = NaN;
+        this._queue              = [];
         this._current_id        = 1;        // the id to match request/response
         this._ws_callbacks      = {};
-        this.socketRetryCount   = 0;
-        this.socketRetryTimeout = 1000;
+        this._socketRetryCount   = 0;
+        this._socketRetryTimeout = 1000;
 
-        this.socket;                        // init connection
+        this._socket = this.socket;         // init connection
     }
 
     /**
@@ -59,21 +58,21 @@ class CJsonRpcClient {
      */
 
     get socket() {
-        if (this.m_socket)
-            return this.m_socket;
+        if (this._socket)
+            return this._socket;
 
         if (this.socketRetrying) {
             clearTimeout(this.socketRetrying);
             this.socketRetrying = NaN;
         }
 
-        this.m_socket           = new WebSocket(this.options.socketUrl);
-        this.m_socket.onmessage = (event) => this._onWSMessage(event);
-        this.m_socket.onopen    = (event) => this._onWSConnect(event);
-        this.m_socket.onclose   = (event) => this._onWSClose(event);
-        this.m_socket.onerror   = (event) => this._onWSError(event);
+        this._socket           = new WebSocket(this._options.socketUrl);
+        this._socket.onmessage = (event) => this._onWSMessage(event);
+        this._socket.onopen    = (event) => this._onWSConnect(event);
+        this._socket.onclose   = (event) => this._onWSClose(event);
+        this._socket.onerror   = (event) => this._onWSError(event);
 
-        return this.m_socket;
+        return this._socket;
     }
 
     /**
@@ -110,8 +109,8 @@ class CJsonRpcClient {
      */
 
     notify(method, params) {
-        if (this.options.sessid) {
-            params.sessid = this.options.sessid;
+        if (this._options.sessid) {
+            params.sessid = this._options.sessid;
         }
 
         const request = {
@@ -136,7 +135,7 @@ class CJsonRpcClient {
         const jsonRequest = JSON.stringify(request);
 
         if (this.socket.readyState != WebSocket.OPEN) {
-            this.queue.push(jsonRequest);
+            this._queue.push(jsonRequest);
             return;
         }
 
@@ -156,12 +155,13 @@ class CJsonRpcClient {
      */
 
     _onWSMessage(event) {
-        this.logger.debug('_onWSMessage', event);
+        const logger = this._logger.method('_onWSMessage', this._options.debug);
+        logger.debug(event);
         let response;
         try {
             response = JSON.parse(event.data);
         } catch(err) {
-            this.logger.error(err);
+            logger.error(err);
             return;
         }
 
@@ -181,16 +181,16 @@ class CJsonRpcClient {
 
         // Handler of the response with no request
 
-        if (this.options.onMessage) {
+        if (this._options.onMessage) {
             event.eventData = response || {};
-            const reply     = this.options.onMessage(event);
+            const reply     = this._options.onMessage(event);
             if (reply && typeof reply === 'object' && event.eventData.id) {
                 const msg = {
                     jsonrpc: '2.0',
                     id:       event.eventData.id,
                     result:   reply
                 };
-                this.logger.debug('_onWSMessage: Sending Reply', msg);
+                logger.debug('_onWSMessage: Sending Reply', msg);
                 this.socket.send(JSON.stringify(msg));
             }
         }
@@ -203,24 +203,25 @@ class CJsonRpcClient {
      */
 
     _onWSConnect() {
-        this.logger.debug('_onWSConnect');
+        const logger = this._logger.method('_onWSConnect', this._options.debug);
+        logger.debug('fired');
 
-        this.socketRetryCount   = 0;
-        this.socketRetryTimeout = 1000;
+        this._socketRetryCount   = 0;
+        this._socketRetryTimeout = 1000;
 
-        if (this.options.onWSConnect) {
-            this.options.onWSConnect(this);
+        if (this._options.onWSConnect) {
+            this._options.onWSConnect(this);
         }
 
-        if (this.queue.length) {
-            this.logger.debug(`_onWSConnect: Sending queued requests. Queue deep ${this.queue.length}`);
+        if (this._queue.length) {
+            logger.debug(`_onWSConnect: Sending queued requests. Queue deep ${this._queue.length}`);
         }
 
         // Send queued requests
-        let req = this.queue.pop();
+        let req = this._queue.pop();
         while (req) {
             this.socket.send(req);
-            req = this.queue.pop();
+            req = this._queue.pop();
         }
     }
 
@@ -231,25 +232,26 @@ class CJsonRpcClient {
      */
 
     _onWSClose() {
-        this.logger.debug('_onWSClose');
+        const logger = this._logger.method('_onWSClose', this._options.debug);
+        logger.debug('fired');
 
-        this.m_socket = NaN;
+        this._socket = NaN;
 
-        if (this.options.onWSClose) {
-            this.options.onWSClose(this);
+        if (this._options.onWSClose) {
+            this._options.onWSClose(this);
         }
 
-        this.logger.error(new Error(`WebSocket Lost. Retry count:  ${this.socketRetryCount}. Going to sleep: ${this.socketRetryTimeout} msec`));
-        if (this.socketRetryTimeout < 3000 && (this.socketRetryCount % 10) == 0) {
-            this.socketRetryTimeout += 1000;
+        logger.error(new Error(`WebSocket Lost. Retry count: ${this._socketRetryCount}. Going to sleep: ${this._socketRetryTimeout} msec`));
+        if (this._socketRetryTimeout < 3000 && (this._socketRetryCount % 10) == 0) {
+            this._socketRetryTimeout += 1000;
         }
 
         this.socketRetrying = setTimeout(() => {
-            this.logger.info('_onWSClose: WebSocket Attempting Reconnection....');
-            this.socket;
-        }, this.socketRetryTimeout);
+            logger.info('_onWSClose: WebSocket Attempting Reconnection....');
+            this._socket = this.socket;
+        }, this._socketRetryTimeout);
 
-        this.socketRetryCount++;
+        this._socketRetryCount++;
     }
 
     /**
@@ -260,12 +262,13 @@ class CJsonRpcClient {
      */
 
     _onWSError(event) {
-        this.logger.debug('_onWSError', event);
+        const logger = this._logger.method('_onWSError', this._options.debug);
+        logger.debug(new Error(event));
 
-        this.m_socket = NaN;
+        this._socket = NaN;
 
-        if (this.options.onWSError) {
-            this.options.onWSError(this, event);
+        if (this._options.onWSError) {
+            this._options.onWSError(this, event);
         }
     }
 }

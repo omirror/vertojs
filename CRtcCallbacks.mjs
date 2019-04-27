@@ -1,5 +1,7 @@
 'use strict';
 
+import { CLogger } from './CLogger.mjs';
+
 class CRtcCallbacks {
 
     /**
@@ -7,81 +9,86 @@ class CRtcCallbacks {
      */
 
     constructor(dialog) {
-        this.verto = dialog.verto;
-        this.dialog = dialog;
+        this._verto = dialog.verto;
+        this._dialog = dialog;
 
-        if (typeof this.verto.options.logger === 'object') {
-            this.logger = this.verto.options.logger;
+        if (typeof this._verto.options.logger === 'object') {
+            this._logger = this._verto.options.logger;
         } else {
-            this.logger = {
-                debug: this.verto.options.debug ? (...args) => console.debug(this.callID, this.constructor.name, ...args) : () => {},
-                info:  (...args) => console.log(this.callID, this.constructor.name, ...args),
-                error: (err) => console.error(`${this.callID} ${this.constructor.name} ${this.verto.options.debug ? err.stack : err.message}`)
-            };
+            this._logger = new CLogger(`${this._dialog.callID} CRtcCallbacks`, this._verto.options.debug);
         }
     }
 
     onMessage(rtc, msg) {
-        this.logger.debug(msg);
+        const logger = this._logger.method('onMessage', this._verto.options.debug);
+        logger.debug(msg);
     }
 
     onAnswerSDP(rtc, sdp) {
-        this.logger.error(new Error(`Answer sdp [${sdp}]`));
+        const logger = this._logger.method('onAnswerSDP', this._verto.options.debug);
+        logger.error(new Error(`Answer sdp [${sdp}]`));
     }
 
     onICESDP(rtc) {
-        this.logger.debug('RECV ' + rtc.type + ' SDP', rtc.mediaData.SDP);
+        const logger = this._logger.method('onICESDP', this._verto.options.debug);
+        logger.debug('RECV ' + rtc.type + ' SDP', rtc.mediaData.SDP);
 
-        if (this.dialog.state === this.verto.enum.state.requesting ||
-            this.dialog.state === this.verto.enum.state.answering ||
-            this.dialog.state === this.verto.enum.state.active) {
+        if (this._dialog.state === this._verto.STATE.REQUESTING ||
+            this._dialog.state === this._verto.STATE.ANSWERING ||
+            this._dialog.state === this._verto.STATE.ACTIVE) {
             location.reload();
             return;
         }
 
-        if (rtc.type == 'offer') {
-            if (this.dialog.state === this.verto.enum.state.active) {
-                this.dialog.setState(this.verto.enum.state.requesting);
-                this.dialog.sendMethod('verto.attach', {
+        if (rtc.type === 'offer') {
+            if (this._dialog.state === this._verto.STATE.ACTIVE) {
+                this._dialog.setState(this._verto.STATE.REQUESTING);
+                this._dialog.sendMethod('verto.attach', {
                     sdp: rtc.mediaData.SDP
                 });
             } else {
-                this.dialog.setState(this.verto.enum.state.requesting);
+                this._dialog.setState(this._verto.STATE.REQUESTING);
 
-                this.dialog.sendMethod('verto.invite', {
+                this._dialog.sendMethod('verto.invite', {
                     sdp: rtc.mediaData.SDP
                 });
             }
         } else { //answer
-            this.dialog.setState(this.verto.enum.state.answering);
+            this._dialog.setState(this._verto.STATE.ANSWERING);
 
-            this.dialog.sendMethod(this.dialog.attach ? 'verto.attach' : 'verto.answer', {
-                sdp: this.dialog.rtc.mediaData.SDP
+            this._dialog.sendMethod(this._dialog.attach ? 'verto.attach' : 'verto.answer', {
+                sdp: this._dialog.rtc.mediaData.SDP
             });
         }
     }
 
     onICE(rtc) {
+        const logger = this._logger.method('onICE', this._verto.options.debug);
+        logger.debug('onICE');
         if (rtc.type === 'offer') {
-            this.logger.debug('offer candidate', rtc.mediaData.candidate);
+            logger.debug('offer candidate', rtc.mediaData.candidate);
         }
     }
 
     onStream(rtc, stream) {
-        if (this.verto.options.permissionCallback &&
-            typeof this.verto.options.permissionCallback.onGranted === 'function'){
-            this.verto.options.permissionCallback.onGranted(stream);
+        const logger = this._logger.method('onStream', this._verto.options.debug);
+        logger.debug('onStream');
+        if (this._verto.options.permissionCallback &&
+            typeof this._verto.options.permissionCallback.onGranted === 'function'){
+            this._verto.options.permissionCallback.onGranted(stream);
         }
-        this.logger.debug('stream started');
+        logger.debug('stream started');
     }
 
     onError(err) {
-        if (this.verto.options.permissionCallback &&
-            typeof this.verto.options.permissionCallback.onDenied === 'function'){
-            this.verto.options.permissionCallback.onDenied();
+        const logger = this._logger.method('onError', this._verto.options.debug);
+        logger.debug('onError');
+        if (this._verto.options.permissionCallback &&
+            typeof this._verto.options.permissionCallback.onDenied === 'function'){
+            this._verto.options.permissionCallback.onDenied();
         }
-        this.logger.error(new Error((err && err.stack) || err));
-        this.dialog.hangup({ cause: 'Device or Permission Error' });
+        logger.error(new Error((err && err.stack) || err));
+        this._dialog.hangup({ cause: 'Device or Permission Error' });
     }
 
 }
