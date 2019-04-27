@@ -1,6 +1,20 @@
+/**
+ * 2019
+ *
+ * Contributor(s):
+ *
+ * Anatoly Yuzefovich <iskhartakh@gmail.com>
+ *
+ * A module RTC Callbacks
+ *
+ * @module CRtcCallbacks
+ */
+
 'use strict';
 
 import { CLogger } from './CLogger.mjs';
+
+/** Class representation a RTC Callbacks */
 
 class CRtcCallbacks {
 

@@ -10,6 +10,8 @@
  * @module Helpers
  */
 
+'use strict';
+
 /**
  * UUID Generator Helper
  *

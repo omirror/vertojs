@@ -10,10 +10,14 @@
  * @module CVertoDialog
  */
 
+'use strict';
+
 import { CLogger }       from './CLogger.mjs';
 import { CRtc }          from './CRtc.mjs';
 import { CRtcCallbacks } from './CRtcCallbacks.mjs';
 import { genUuid }       from './Helpers.mjs';
+
+/** Class representation a Verto Dialog */
 
 class CVertoDialog {
 
@@ -36,7 +40,7 @@ class CVertoDialog {
             useSpeak:       verto.options.deviceParams.useSpeak,
             login:          verto.options.login,
             videoParams:    verto.options.videoParams,
-            debug:          false,
+            debug:          verto.options.debug,
             ...message.params
         };
 
@@ -63,6 +67,8 @@ class CVertoDialog {
         } else {
             this._logger = new CLogger(`${this._callID} CVertoDialog`);
         }
+
+        this._logger.debug('New call');
 
         if (this._verto.options.tag) {
             this._audioStream = document.getElementById(this._verto.options.tag);

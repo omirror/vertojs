@@ -10,7 +10,11 @@
  * @module CJsonRpcClient
  */
 
+'use strict';
+
 import { CLogger } from './CLogger.mjs';
+
+/** Class representation a JSON RPC Client */
 
 class CJsonRpcClient {
 

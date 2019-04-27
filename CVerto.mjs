@@ -10,6 +10,8 @@
  * @module CVerto
  */
 
+'use strict';
+
 import { CJsonRpcClient } from './CJsonRpcClient.mjs';
 import { CLogger }        from './CLogger.mjs';
 import { CVertoDialog }   from './CVertoDialog.mjs';
