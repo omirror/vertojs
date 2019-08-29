@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  * 2019
  *
@@ -15,27 +13,37 @@
 /** Class representation a logger */
 
 class CLogger {
+    private _label: string;
+    private _debug: boolean = true;
 
     /**
      * Create a logger
      *
      * @param {String} [label=default] - Prepend log messages text
      * @param {String} [debug=true] - Debug level enable flag
-     * @param {String} [delimeter=' '] - Separator
      */
 
     constructor(label = 'default', debug = true) {
         this._label = label;
-        for (const severity of ['debug', 'warn', 'info', 'error']) {
-            Object.defineProperty(this, severity, {
-                value: (...msg) => {
-                    if (severity === 'debug' && !debug) {
-                        return;
-                    }
-                    return console[severity](this.label, ...msg);
-                }
-            });
+        this._debug = debug;
+    }
+
+    public debug(...msg: any[]) {
+        if (this._debug) {
+            console.log(this._label, ...msg);
         }
+    }
+
+    public warn(...msg: any[]) {
+        console.warn(this._label, ...msg);
+    }
+
+    public info(...msg: any[]) {
+        console.info(this._label, ...msg);
+    }
+
+    public error(...msg: any[]) {
+        console.error(this._label, ...msg);
     }
 
     /** Get instance label */
@@ -53,11 +61,12 @@ class CLogger {
     /**
      * Add method label to original label and return new instance of CLogger
      *
-     * @param {String} method - Method name or what we need to label
+     * @param {String}  method - Method name or what we need to label
+     * @param {Boolean} debug  - Debug flag
      * @return {CLogger} new CLogger instance with new label
      */
 
-    method(method, debug) {
+    method(method: string, debug: boolean) {
         return new CLogger(`${this.label}:${method}`, debug);
     }
 
@@ -65,13 +74,12 @@ class CLogger {
      * Create new logger instance
      *
      * @param {String} [label=default] - Prepend log messages text
-     * @param {String} [debug=true] - Debug level enable flag
-     * @param {String} [delimeter=' '] - Separator
+     * @param {String} [debug=true]    - Debug level enable flag
      * @return {CLogger} new CLogger instance with new label
      */
 
-    new(label = 'default', debug = true, delimeter = ' ') {
-        return new CLogger(label, debug, delimeter);
+    new(label = 'default', debug = true) {
+        return new CLogger(label, debug);
     }
 }
 

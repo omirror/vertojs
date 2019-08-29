@@ -1,0 +1,74 @@
+{
+    "extends": ["tslint:recommended"],
+    "rules": {
+        "indent": [true, "spaces", 4],
+        "forin": false,
+        "radix": false,
+        "semicolon": [true, "always"],
+        "no-underscore-dangle": false,
+        "no-shadowed-variable": false,
+        "ordered-imports": false,
+        "no-var-requires": false,
+        "no-empty-interface": false,
+        "import-name": false,
+        "variable-name": false,
+        "ban-types": false,
+        "align": [true, "parameters", "statements", "members"],
+        "max-line-length": [true, {"limit": 200, "ignore-pattern": "^import |^export {(.*?)} | d="}],
+        "max-union-size": false,
+        "quotemark": [true, "single", "jsx-double"],
+        "no-default-export": true,
+        "no-unused-expression": false,
+        "interface-name": false,
+        "array-type": false,
+        "class-name": false,
+        "no-misused-new": false,
+        "function-name": [ false, {
+            "method-regex": "^[a-z][\\w\\d]+$",
+            "private-method-regex": "^[a-z][\\w\\d]+$",
+            "protected-method-regex": "^[a-z][\\w\\d]+$",
+            "static-method-regex": "^[A-Za-z_\\d]+$",
+            "function-regex": "^[a-zA-Z][\\w\\d]+$"
+        } ],
+        "member-ordering": [
+            false,
+            {
+                "order": [
+                    "public-instance-field",
+                    "public-static-field",
+                    "private-static-field",
+                    "private-instance-field",
+                    "public-constructor",
+                    "private-constructor",
+                    "public-instance-method",
+                    "protected-instance-method",
+                    "private-instance-method",
+                    "public-static-method",
+                    "protected-static-method",
+                    "private-static-method"
+                ]
+            }
+        ],
+        "no-empty": false,
+        "arrow-parens": [true],
+        "object-literal-sort-keys": false,
+        "no-string-literal": false,
+        "no-nested-template-literals": false,
+        "trailing-comma": [
+            true,
+            {
+                "multiline": {
+                    "objects": "never",
+                    "arrays": "never",
+                    "functions": "never",
+                    "typeLiterals": "never"
+                },
+                "esSpecCompliant": true
+            }
+        ]
+    },
+    "linterOptions": {
+        "exclude": ["node_modules/**"]
+    }
+}
+

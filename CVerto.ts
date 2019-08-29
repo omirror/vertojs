@@ -10,16 +10,24 @@
  * @module CVerto
  */
 
-'use strict';
-
-import { CJsonRpcClient } from './CJsonRpcClient.mjs';
-import { CLogger }        from './CLogger.mjs';
-import { CVertoDialog }   from './CVertoDialog.mjs';
-import { genUuid }        from './Helpers.mjs';
+import { CJsonRpcClient } from './CJsonRpcClient';
+import { CLogger }        from './CLogger';
+import { CVertoDialog }   from './CVertoDialog';
+import { genUuid }        from './Helpers';
 
 /** Class representation a Verto UA */
 
 class CVerto {
+    private _options: { [key: string]: any };
+    private _callbacks: { [key: string]: any };
+    private _dialogs: { [key: string]: any } = {};
+    private _eventSUBS: { [key: string]: any } = {};
+    private _rpcClient: CJsonRpcClient;
+    private _logger: CLogger;
+    private _sessid: string;
+    private _videoDevices    = [];
+    private _audioInDevices  = [];
+    private _audioOutDevices = [];
 
     /**
      * CVerto class constructor
@@ -29,7 +37,7 @@ class CVerto {
      * @param {Object} callbacks
      */
 
-    constructor(options, callbacks) {
+    constructor(options: { [key: string]: any }, callbacks: { [key: string]: any }) {
         this._options = Object.freeze({
             login:          null,
             passwd:         null,
@@ -61,9 +69,7 @@ class CVerto {
             this._logger = new CLogger(`${this._sessid} CVerto`, this.options.debug);
         }
 
-        this._dialogs   = {};
         this._callbacks = callbacks || {};
-        this._eventSUBS = {};
         this._rpcClient = new CJsonRpcClient({
             login:          this.options.login,
             passwd:         this.options.passwd,
@@ -73,8 +79,8 @@ class CVerto {
             sessid:         this._sessid,
             debug:          this.options.debug,
             logger:         this.options.logger,
-            onMessage: (e) => this.handleMessage(e.eventData),
-            onWSConnect: (rpcClient) => {
+            onMessage: (e: any) => this.handleMessage(e.eventData),
+            onWSConnect: (rpcClient: CJsonRpcClient) => {
                 let params = {};
                 if (this.options.login && this.options.passwd) {
                     params = {
@@ -97,10 +103,6 @@ class CVerto {
                 //this.purge();
             }
         });
-
-        this._videoDevices    = [];
-        this._audioInDevices  = [];
-        this._audioOutDevices = [];
 
         this.refreshDevices();
     }
@@ -181,7 +183,7 @@ class CVerto {
      * @param {Object} message - Message object
      */
 
-    handleMessage(message) {
+    handleMessage(message: { [key: string]: any }) {
         const logger = this._logger.method('handleMessage', this.options.debug);
         logger.debug('message received', message);
 
@@ -206,9 +208,9 @@ class CVerto {
                         opts.params.useStereo = true;
                     }
                 }
-                this.dialogs[message.params.callID] =
+                this._dialogs[message.params.callID] =
                     new CVertoDialog(this.DIRECTION.INBOUND, this, opts);
-                this.dialogs[message.params.callID].setState(this.STATE.RECOVERING);
+                this._dialogs[message.params.callID].setState(this.STATE.RECOVERING);
             }
             break;
         case 'verto.invite': // Inbound call
@@ -238,8 +240,8 @@ class CVerto {
             }
             break;
         case 'verto.punt': // its like UA termination trigger
-            this.purge();
-            this.logout();
+            //this.purge();
+            //this.logout();
             break;
         case 'verto.clientReady': // UA is ready. Due an auth for example
             if (this._callbacks.onMessage) {
@@ -262,8 +264,8 @@ class CVerto {
      * @param {String} callID - Call ID
      */
 
-    deleteDialog(callID) {
-        const logger = this._logger.method(`deleteDialog`, this.options.debug);
+    deleteDialog(callID: string) {
+        const logger = this._logger.method('deleteDialog', this.options.debug);
         logger.debug(callID);
         delete this._dialogs[callID];
     }
@@ -273,7 +275,7 @@ class CVerto {
 
     }
 
-    get Devices() {}
+    get Devices() { return; }
 }
 
 export { CVerto };

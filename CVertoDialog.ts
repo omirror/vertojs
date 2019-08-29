@@ -10,16 +10,16 @@
  * @module CVertoDialog
  */
 
-'use strict';
-
-import { CLogger }       from './CLogger.mjs';
-import { CRtc }          from './CRtc.mjs';
-import { CRtcCallbacks } from './CRtcCallbacks.mjs';
-import { genUuid }       from './Helpers.mjs';
+import { CLogger }       from './CLogger';
+import { CRtc }          from './CRtc';
+import { CRtcCallbacks } from './CRtcCallbacks';
+import { genUuid }       from './Helpers';
+import { CVerto }        from './CVerto';
 
 /** Class representation a Verto Dialog */
 
 class CVertoDialog {
+    private _params: { [key: string]: any };
 
     /**
      * CVertoDialog class constructor
@@ -30,7 +30,7 @@ class CVertoDialog {
      * @param {Object} message - Verto event message
      */
 
-    constructor(direction, verto, message) {
+    constructor(direction: string, verto: CVerto, message: { [key: string]: any }) {
         this._params = {
             useVideo:       message.params.sdp && message.params.sdp.indexOf('m=video') > 0,
             useStereo:      message.params.sdp && message.params.sdp.indexOf('stereo=1') > 0,
@@ -125,6 +125,14 @@ class CVertoDialog {
      * CVerto object
      */
 
+    get callId() {
+        return this._callId;
+    }
+
+    /**
+     * CVerto object
+     */
+
     get verto() {
         return this._verto;
     }
@@ -135,6 +143,14 @@ class CVertoDialog {
 
     get attach() {
         return this._attach;
+    }
+
+    /**
+     * Call state
+     */
+
+    get state() {
+        return this._state;
     }
 
     /**

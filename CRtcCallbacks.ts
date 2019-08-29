@@ -10,26 +10,29 @@
  * @module CRtcCallbacks
  */
 
-'use strict';
-
-import { CLogger } from './CLogger.mjs';
+import { CLogger }      from './CLogger';
+import { CVertoDialog } from './CVertoDialog';
+import { CVerto }       from './CVerto';
 
 /** Class representation a RTC Callbacks */
 
 class CRtcCallbacks {
+    private _verto: CVerto;
+    private _dialog: CVertoDialog;
+    private _logger: CLogger;
 
     /**
      * Create RTC Callbacks
      */
 
-    constructor(dialog) {
+    constructor(dialog: CVertoDialog) {
         this._verto = dialog.verto;
         this._dialog = dialog;
 
         if (typeof this._verto.options.logger === 'object') {
             this._logger = this._verto.options.logger;
         } else {
-            this._logger = new CLogger(`${this._dialog.callID} CRtcCallbacks`, this._verto.options.debug);
+            this._logger = new CLogger(`${this._dialog.callId} CRtcCallbacks`, this._verto.options.debug);
         }
     }
 

@@ -10,13 +10,20 @@
  * @module CJsonRpcClient
  */
 
-'use strict';
-
-import { CLogger } from './CLogger.mjs';
+import { CLogger } from './CLogger';
 
 /** Class representation a JSON RPC Client */
 
 class CJsonRpcClient {
+    private _options: { [key: string]: any };
+    private _logger: CLogger;
+    private _socket: any;
+    private _queue: Array<string> = [];
+    private _current_id: number = 1;        // the id to match request/response
+    private _ws_callbacks: { [key: string]: any } = {};
+    private _socketRetryCount: number = 0;
+    private _socketRetryTimeout: number = 1000;
+    private socketRetrying: any;
 
     /**
      * CJsonRpcClient class constructor
@@ -25,7 +32,7 @@ class CJsonRpcClient {
      * @param {Object} options - Options object
      */
 
-    constructor(options) {
+    constructor(options: { [key: string]: any }) {
         this._options = Object.freeze({
             socketUrl:     NaN,
             onMessage:     NaN,           // Not requested response callback
@@ -44,12 +51,7 @@ class CJsonRpcClient {
             this._logger = new CLogger(`${this._options.sessid} CJsonRpcClient`, this._options.debug);
         }
 
-        this._socket           = NaN;
-        this._queue              = [];
-        this._current_id        = 1;        // the id to match request/response
-        this._ws_callbacks      = {};
-        this._socketRetryCount   = 0;
-        this._socketRetryTimeout = 1000;
+
 
         this._socket = this.socket;         // init connection
     }
@@ -71,10 +73,10 @@ class CJsonRpcClient {
         }
 
         this._socket           = new WebSocket(this._options.socketUrl);
-        this._socket.onmessage = (event) => this._onWSMessage(event);
-        this._socket.onopen    = (event) => this._onWSConnect(event);
-        this._socket.onclose   = (event) => this._onWSClose(event);
-        this._socket.onerror   = (event) => this._onWSError(event);
+        this._socket.onmessage = (event: any) => this._onWSMessage(event);
+        this._socket.onopen    = () => this._onWSConnect();
+        this._socket.onclose   = () => this._onWSClose();
+        this._socket.onerror   = (event: any) => this._onWSError(event);
 
         return this._socket;
     }
@@ -90,10 +92,10 @@ class CJsonRpcClient {
      */
 
     call(
-        method,
+        method: string,
         params      = {},
-        success_cb  = (e) => console.debug('CJsonRpcClient::call:success_cb: ', e),
-        error_cb    = (e) => console.debug('CJsonRpcClient::call:error_cb: ', e)
+        success_cb  = (e: any) => console.debug('CJsonRpcClient::call:success_cb: ', e),
+        error_cb    = (e: any) => console.debug('CJsonRpcClient::call:error_cb: ', e)
     ) {
         const request = {
             jsonrpc: '2.0',
@@ -108,11 +110,11 @@ class CJsonRpcClient {
      * Notify verto method call
      *
      * @method notify
-     * @param {string}   method - The method to run on JSON-RPC server.
-     * @param {Object}   params - The params object.
+     * @param {string} method - The method to run on JSON-RPC server.
+     * @param {Object} params - The params object.
      */
 
-    notify(method, params) {
+    notify(method: string, params: { [key: string]: any }) {
         if (this._options.sessid) {
             params.sessid = this._options.sessid;
         }
@@ -135,7 +137,7 @@ class CJsonRpcClient {
      * @param {function} error_cb   - A callback for error.
      */
 
-    _wsCall(request, success_cb, error_cb) {
+    _wsCall(request: { [key: string]: any }, success_cb?: CallableFunction, error_cb?: CallableFunction) {
         const jsonRequest = JSON.stringify(request);
 
         if (this.socket.readyState != WebSocket.OPEN) {
@@ -158,7 +160,7 @@ class CJsonRpcClient {
      * @param {Object} event - Event object
      */
 
-    _onWSMessage(event) {
+    _onWSMessage(event: any) {
         const logger = this._logger.method('_onWSMessage', this._options.debug);
         logger.debug(event);
         let response;
@@ -265,7 +267,7 @@ class CJsonRpcClient {
      * @param {Object} event - Event object
      */
 
-    _onWSError(event) {
+    _onWSError(event: any) {
         const logger = this._logger.method('_onWSError', this._options.debug);
         logger.debug(new Error(event));
 

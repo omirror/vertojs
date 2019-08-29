@@ -10,8 +10,6 @@
  * @module Helpers
  */
 
-'use strict';
-
 /**
  * UUID Generator Helper
  *
@@ -20,13 +18,14 @@
  */
 
 function genUuid() {
-    function S4(num) {
+    function S4(num: number) {
         let ret = num.toString(16);
         if (ret.length < 4) {
             ret.padStart(4, '0');
         }
         return ret;
     }
+    // @ts-ignore
     const cryptoObj = window.crypto || window.msCrypto; // IE 11
     const buf       = new Uint16Array(8);
 

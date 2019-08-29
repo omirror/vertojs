@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "sourceMap": true,
+        "target": "esnext",
+        "lib": [
+          "esnext",
+          "dom"
+        ],
+        "allowJs": false,
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "module": "ES6",
+        "isolatedModules": false,
+        "noImplicitAny": true,
+        "noEmitOnError": true,
+        "strictNullChecks": true,
+        "typeRoots": [
+            "./types"
+        ],
+        "rootDir": ".",
+        "baseUrl": "."
+    }
+}
